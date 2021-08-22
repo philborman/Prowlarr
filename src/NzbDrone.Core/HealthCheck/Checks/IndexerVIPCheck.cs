@@ -12,11 +12,11 @@ namespace NzbDrone.Core.HealthCheck.Checks
     [CheckOn(typeof(ProviderAddedEvent<IIndexer>))]
     [CheckOn(typeof(ProviderUpdatedEvent<IIndexer>))]
     [CheckOn(typeof(ProviderDeletedEvent<IIndexer>))]
-    public class NewznabVIPCheck : HealthCheckBase
+    public class IndexerVipCheck : HealthCheckBase
     {
         private readonly IIndexerFactory _indexerFactory;
 
-        public NewznabVIPCheck(IIndexerFactory indexerFactory, ILocalizationService localizationService)
+        public IndexerVipCheck(IIndexerFactory indexerFactory, ILocalizationService localizationService)
             : base(localizationService)
         {
             _indexerFactory = indexerFactory;
@@ -25,11 +25,11 @@ namespace NzbDrone.Core.HealthCheck.Checks
         public override HealthCheck Check()
         {
             var enabled = _indexerFactory.Enabled(false);
-            var newznabProviders = enabled.Where(i => i.Definition.Implementation == typeof(Newznab).Name);
+            var vipProviders = enabled.Where(i => ((IndexerDefinition)i.Definition.Settings).VipExpiration.IsNotNullOrWhiteSpace());
             var expiringProviders = new List<IIndexer>();
             var expiredProviders = new List<IIndexer>();
 
-            foreach (var provider in newznabProviders)
+            foreach (var provider in vipProviders)
             {
                 var expiration = ((NewznabSettings)provider.Definition.Settings).VipExpiration;
 
@@ -53,18 +53,18 @@ namespace NzbDrone.Core.HealthCheck.Checks
             {
                 return new HealthCheck(GetType(),
                 HealthCheckResult.Warning,
-                string.Format(_localizationService.GetLocalizedString("NewznabVipCheckExpiringClientMessage"),
+                string.Format(_localizationService.GetLocalizedString("IndexerVipCheckExpiringClientMessage"),
                     string.Join(", ", expiringProviders.Select(v => v.Definition.Name))),
-                "#newznab-vip-expiring");
+                "#vip-expiring");
             }
 
             if (!expiredProviders.Empty())
             {
                 return new HealthCheck(GetType(),
                 HealthCheckResult.Warning,
-                string.Format(_localizationService.GetLocalizedString("NewznabVipCheckExpiredClientMessage"),
+                string.Format(_localizationService.GetLocalizedString("IndexerVipCheckExpiredClientMessage"),
                     string.Join(", ", expiredProviders.Select(v => v.Definition.Name))),
-                "#newznab-vip-expired");
+                "#vip-expired");
             }
 
             return new HealthCheck(GetType());
